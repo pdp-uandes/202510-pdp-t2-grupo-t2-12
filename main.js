@@ -5,6 +5,8 @@ function onOpen() {
     .addSeparator()
     .addItem('Dependientes', 'agregarDependientes')
     .addSeparator()
+    .addItem('Asignaturas por carrera', 'asignaturasPorCarrera')
+    .addSeparator()
     .addItem('Análisis', 'generarAnalisis')
     .addSeparator()
     .addItem('Malla', 'generarMalla')
