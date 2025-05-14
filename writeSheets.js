@@ -44,3 +44,47 @@
     });
   }
 
+
+function agregarDependientes() {
+  const hoja = SpreadsheetApp.getActiveSheet();
+  const datos = hoja.getDataRange().getValues();
+  if (datos.length <= 1) return;
+
+  const encabezado = datos[0];
+  const filas = datos.slice(1);
+
+  const indexCodigo = encabezado.indexOf("CODIGO");
+  const indexTitulo = encabezado.indexOf("TITULO");
+  const indexRequisitos = encabezado.indexOf("Requisitos");
+
+  // Mapear codigo a titulo
+  const codigosATitulos = {};
+  filas.forEach(fila => {
+    codigosATitulos[fila[indexCodigo]] = fila[indexTitulo];
+  });
+
+// Mapear código a lista de títulos que dependen de él
+  const dependientes = {};
+  filas.forEach(fila => {
+    const requisitosRaw = fila[indexRequisitos];
+    if (!requisitosRaw) return;
+
+    requisitosRaw.split(",").forEach(req => {
+      const cod = req.trim().replace(/\(p\)/, ""); // quitar (p)
+      if (!dependientes[cod]) dependientes[cod] = [];
+      dependientes[cod].push(fila[indexTitulo]);
+    });
+  });
+
+   // Escribir columna "Dependientes"
+  const indexDependientes = encabezado.length;
+  hoja.getRange(1, indexDependientes + 1).setValue("Dependientes");
+
+  filas.forEach((fila, i) => {
+    const codigo = fila[indexCodigo];
+    const deps = dependientes[codigo] || [];
+    hoja.getRange(i + 2, indexDependientes + 1).setValue(deps.join(", "));
+  });
+
+  SpreadsheetApp.getUi().alert("Dependientes agregados correctamente.");
+}
