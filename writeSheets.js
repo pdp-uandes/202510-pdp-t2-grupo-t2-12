@@ -45,21 +45,20 @@
   }
 
 function obtenerDependientes(datos, indexCodigo, indexTitulo, indexRequisitos) {
-  const dependientes = {};
-
-  datos.forEach(fila => {
+  return datos.reduce((acc, fila) => {
     const requisitos = fila[indexRequisitos];
-    if (!requisitos) return;
+    if (!requisitos) return acc;
 
-    requisitos.split(",").forEach(req => {
-      const cod = req.trim().replace(/\(p\)/, "");
-      dependientes[cod] = (dependientes[cod] || []).concat(fila[indexTitulo]);
-    });
-  });
+    requisitos
+      .split(",")
+      .map(req => req.trim().replace(/\(p\)/, "")) // limpiamos (p) y espacios
+      .forEach(cod => {
+        acc[cod] = [...(acc[cod] || []), fila[indexTitulo]]; // nueva lista sin mutar anterior
+      });
 
-  return dependientes;
+    return acc;
+  }, {});
 }
-
 
 function agregarDependientes() {
   const hoja = SpreadsheetApp.getActiveSheet();
@@ -73,14 +72,14 @@ function agregarDependientes() {
   const indexTitulo = encabezado.indexOf("TITULO");
   const indexRequisitos = encabezado.indexOf("Requisitos");
 
-  // Obtener dependientes de forma funcional
+  // Obtener objeto de dependencias
   const dependientes = obtenerDependientes(filas, indexCodigo, indexTitulo, indexRequisitos);
 
-  // Agregar encabezado
+  // Agregar encabezado de la nueva columna
   const indexDependientes = encabezado.length;
   hoja.getRange(1, indexDependientes + 1).setValue("Dependientes");
 
-  // Escribir resultados
+  // Escribir dependientes en cada fila
   filas.forEach((fila, i) => {
     const codigo = fila[indexCodigo];
     const deps = dependientes[codigo] || [];
