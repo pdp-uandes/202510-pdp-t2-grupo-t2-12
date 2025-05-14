@@ -45,3 +45,19 @@ function darProporcion(fila, encabezado) {
   return (
     hPresencial / (hSCT * (30 / 18)));
 }
+
+function obtenerDependientes(datos, indexCodigo, indexTitulo, indexRequisitos) {
+  return datos.reduce((acc, fila) => {
+    const requisitos = fila[indexRequisitos];
+    if (!requisitos) return acc;
+
+    requisitos
+      .split(",")
+      .map(req => req.trim().replace(/\(p\)/, "")) // limpiamos (p) y espacios
+      .forEach(cod => {
+        acc[cod] = [...(acc[cod] || []), fila[indexTitulo]]; // nueva lista sin mutar anterior
+      });
+
+    return acc;
+  }, {});
+}
