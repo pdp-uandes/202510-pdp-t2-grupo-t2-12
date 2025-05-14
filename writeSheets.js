@@ -44,6 +44,22 @@
     });
   }
 
+function obtenerDependientes(datos, indexCodigo, indexTitulo, indexRequisitos) {
+  const dependientes = {};
+
+  datos.forEach(fila => {
+    const requisitos = fila[indexRequisitos];
+    if (!requisitos) return;
+
+    requisitos.split(",").forEach(req => {
+      const cod = req.trim().replace(/\(p\)/, "");
+      dependientes[cod] = (dependientes[cod] || []).concat(fila[indexTitulo]);
+    });
+  });
+
+  return dependientes;
+}
+
 
 function agregarDependientes() {
   const hoja = SpreadsheetApp.getActiveSheet();
@@ -57,29 +73,14 @@ function agregarDependientes() {
   const indexTitulo = encabezado.indexOf("TITULO");
   const indexRequisitos = encabezado.indexOf("Requisitos");
 
-  // Mapear codigo a titulo
-  const codigosATitulos = {};
-  filas.forEach(fila => {
-    codigosATitulos[fila[indexCodigo]] = fila[indexTitulo];
-  });
+  // Obtener dependientes de forma funcional
+  const dependientes = obtenerDependientes(filas, indexCodigo, indexTitulo, indexRequisitos);
 
-// Mapear código a lista de títulos que dependen de él
-  const dependientes = {};
-  filas.forEach(fila => {
-    const requisitosRaw = fila[indexRequisitos];
-    if (!requisitosRaw) return;
-
-    requisitosRaw.split(",").forEach(req => {
-      const cod = req.trim().replace(/\(p\)/, ""); // quitar (p)
-      if (!dependientes[cod]) dependientes[cod] = [];
-      dependientes[cod].push(fila[indexTitulo]);
-    });
-  });
-
-   // Escribir columna "Dependientes"
+  // Agregar encabezado
   const indexDependientes = encabezado.length;
   hoja.getRange(1, indexDependientes + 1).setValue("Dependientes");
 
+  // Escribir resultados
   filas.forEach((fila, i) => {
     const codigo = fila[indexCodigo];
     const deps = dependientes[codigo] || [];
