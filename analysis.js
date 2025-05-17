@@ -61,3 +61,27 @@ function obtenerDependientes(datos, indexCodigo, indexTitulo, indexRequisitos) {
     return acc;
   }, {});
 }
+
+// Cuenta los requisitos que tiene una asignatura
+function contarRequisitos(fila, indexRequisitos) {
+  const campo = fila[indexRequisitos];
+  if (!campo) return 0;
+
+  return campo
+    .split(",")
+    .map(x => x.trim())
+    .filter(x => x !== "" && !x.includes("(p)")) // excluir concurrentes
+    .length;
+}
+
+
+// Suma las horas presenciales de clases + ayudantías + laboratorios
+function horasPresenciales(fila, encabezado) {
+  const index = nombre => encabezado.indexOf(nombre);
+  return (
+    vacioaCero(fila[index("Clases")]) +
+    vacioaCero(fila[index("Ayudantías")]) +
+    vacioaCero(fila[index("Laboratorios o Talleres")])
+  );
+}
+

@@ -145,3 +145,101 @@ function asignaturasPorCarrera() {
   pintarHojaAsignaturas();
   SpreadsheetApp.getUi().alert("Asignaturas por carrera generadas correctamente.");
 }
+
+
+function generarAnalisis() {
+  const libro = SpreadsheetApp.getActiveSpreadsheet();
+  const hojas = libro.getSheets();
+
+  // Diccionario para almacenar resultados por métrica y carrera
+  const resultados = {
+    "Asignatura con más requisitos": {},
+    "Cantidad sin requisitos": {},
+    "Asignatura con más horas presenciales": {}
+  };
+
+  hojas.forEach(hoja => {
+    const nombreHoja = hoja.getName();
+    if (!nombreHoja.startsWith("c-")) return; // Solo hojas de carrera
+
+    const carrera = nombreHoja.slice(2);
+    const datos = hoja.getDataRange().getValues();
+    const encabezado = datos[0];
+    const filas = datos.slice(1);
+
+    const indexTitulo = encabezado.indexOf("TITULO");
+    const indexRequisitos = encabezado.indexOf("Requisitos");
+
+    let maxReq = -1;
+    let asignaturaMaxReq = "";
+    let sinRequisitos = 0;
+    let maxHoras = -1;
+    let asignaturaMaxHoras = "";
+
+    filas.forEach(fila => {
+      const nReq = contarRequisitos(fila, indexRequisitos);
+      if (nReq > maxReq) {
+        maxReq = nReq;
+        asignaturaMaxReq = fila[indexTitulo];
+      }
+      if (nReq === 0) {
+        sinRequisitos++;
+      }
+
+      const hPres = horasPresenciales(fila, encabezado);
+      if (hPres > maxHoras) {
+        maxHoras = hPres;
+        asignaturaMaxHoras = fila[indexTitulo];
+      }
+    });
+
+    resultados["Asignatura con más requisitos"][carrera] = asignaturaMaxReq;
+    resultados["Cantidad sin requisitos"][carrera] = sinRequisitos;
+    resultados["Asignatura con más horas presenciales"][carrera] = asignaturaMaxHoras;
+  });
+
+  // Crear o reemplazar hoja Análisis
+  const anterior = libro.getSheetByName("Análisis");
+  if (anterior) libro.deleteSheet(anterior);
+  const hojaAnalisis = libro.insertSheet("Análisis");
+
+  const carreras = Object.values(resultados)[0]
+    ? Object.keys(Object.values(resultados)[0])
+    : [];
+
+  // Escribir encabezados
+  hojaAnalisis.getRange(1, 1).setValue("Métrica");
+  carreras.forEach((carrera, j) => {
+    hojaAnalisis.getRange(1, j + 2).setValue(carrera);
+  });
+
+  // Escribir datos por métrica
+  const nombresMetricas = Object.keys(resultados);
+  nombresMetricas.forEach((metrica, i) => {
+    hojaAnalisis.getRange(i + 2, 1).setValue(metrica);
+    carreras.forEach((carrera, j) => {
+      const valor = resultados[metrica][carrera];
+      hojaAnalisis.getRange(i + 2, j + 2).setValue(valor);
+    });
+  });
+
+  // === FORMATO VISUAL ===
+  const rango = hojaAnalisis.getDataRange();
+  rango.setWrap(true);
+  rango.setHorizontalAlignment("center");
+  rango.setVerticalAlignment("middle");
+
+  const ultCol = hojaAnalisis.getLastColumn();
+  for (let col = 1; col <= ultCol; col++) {
+    hojaAnalisis.autoResizeColumn(col);
+  }
+
+  const ultFila = hojaAnalisis.getLastRow();
+  for (let fila = 1; fila <= ultFila; fila++) {
+    hojaAnalisis.setRowHeight(fila, 40);
+  }
+
+  rango.setBorder(true, true, true, true, true, true);
+
+  SpreadsheetApp.getUi().alert("Análisis generado correctamente.");
+}
