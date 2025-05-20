@@ -68,12 +68,12 @@ function contarRequisitos(fila, indexRequisitos) {
   if (!campo) return 0;
 
   return campo
+    .toString()
     .split(",")
     .map(x => x.trim())
-    .filter(x => x !== "" && !x.includes("(p)")) // excluir concurrentes
+    .filter(x => x !== "")
     .length;
 }
-
 
 // Suma las horas presenciales de clases + ayudantías + laboratorios
 function horasPresenciales(fila, encabezado) {
