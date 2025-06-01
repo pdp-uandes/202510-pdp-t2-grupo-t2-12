@@ -146,82 +146,166 @@ function asignaturasPorCarrera() {
   SpreadsheetApp.getUi().alert("Asignaturas por carrera generadas correctamente.");
 }
 
-
 function generarAnalisis() {
   const libro = SpreadsheetApp.getActiveSpreadsheet();
   const hojas = libro.getSheets();
 
-  // Diccionario para almacenar resultados por métrica y carrera
+  // Estructura para almacenar resultados:
   const resultados = {
     "Asignatura con más requisitos": {},
     "Cantidad sin requisitos": {},
-    "Asignatura con más horas presenciales": {}
+    "Asignatura con más horas presenciales": {},
+    "Semestre con más horas presenciales": {},
+    "Semestre con menos horas presenciales": {},
+    "Proporción promedio hPres / hTot": {},
+    "Asignatura núcleo": {}
   };
 
+  // Recorrer cada hoja de carrera (prefijo "c-")
   hojas.forEach(hoja => {
     const nombreHoja = hoja.getName();
     if (!nombreHoja.startsWith("c-")) return;
 
-    const carrera = nombreHoja.slice(2); // e.g., "c-ICA" → "ICA"
-    const datos = hoja.getDataRange().getValues();
-    const encabezado = datos[0];
-    const filas = datos.slice(1);
+    const carrera = nombreHoja.slice(2);
+    const valores  = hoja.getDataRange().getValues();
+    if (valores.length <= 1) {
+      
+      for (let metrica in resultados) {
+        resultados[metrica][carrera] = "";
+      }
+      return;
+    }
 
-    const indexTitulo = encabezado.indexOf("TITULO");
-    const indexRequisitos = encabezado.indexOf("Requisitos");
+    const encabezado = valores[0];
+    const filas      = valores.slice(1);
 
-    // Variables por carrera
-    let maxReq = -1;
-    let asignaturaMaxReq = [];
-    let sinRequisitos = 0;
-    let maxHoras = -1;
-    let asignaturaMaxHoras = [];
+    // Indices de columnas clave:
+    const indexCodigo       = encabezado.indexOf("CODIGO");
+    const indexTitulo       = encabezado.indexOf("TITULO");
+    const indexRequisitos   = encabezado.indexOf("Requisitos");
+    const indexSemestre     = encabezado.indexOf("Semestre");
+    // Para horas presenciales:
+    const indexClases       = encabezado.indexOf("Clases");
+    const indexAyud         = encabezado.indexOf("Ayudantías");
+    const indexLab          = encabezado.indexOf("Laboratorios o Talleres");
+    // Para horas totales:
+    const indexTrabajos     = encabezado.indexOf("Trabajos");
+    const indexPres         = encabezado.indexOf("Presentaciones");
+    const indexLect         = encabezado.indexOf("Lecturas");
+    const indexEstudio      = encabezado.indexOf("Estudio");
 
+    // Variables por carrera:
+    let maxReq            = -1;
+    let asignaturaMaxReq  = [];
+    let sinRequisitos     = 0;
+    let maxHorasPres      = -1;
+    let asignaturaMaxHoras= [];
+
+    // Mapa semestre = suma de horas presenciales en ese semestre
+    const mapaHorasPorSemestre = {};
+    // Para calculo de proporciones promedio
+    let sumaProporciones = 0;
+    let conteoCursos     = 0;
+
+    // Recorrer cada asignatura (fila a fila)
     filas.forEach(fila => {
+      const titulo = fila[indexTitulo];
+      const codigo = fila[indexCodigo];
+
+      // Requisitos
       const nReq = contarRequisitos(fila, indexRequisitos);
       if (nReq > maxReq) {
         maxReq = nReq;
-        asignaturaMaxReq = [fila[indexTitulo]];
+        asignaturaMaxReq = [titulo];
       } else if (nReq === maxReq) {
-        asignaturaMaxReq.push(fila[indexTitulo]);
+        asignaturaMaxReq.push(titulo);
       }
-
-      // ✅ Solo contar como "sin requisitos" si la celda está vacía
       if (!fila[indexRequisitos] || fila[indexRequisitos].toString().trim() === "") {
         sinRequisitos++;
       }
 
+      // Horas presenciales
       const hPres = horasPresenciales(fila, encabezado);
-      if (hPres > maxHoras) {
-        maxHoras = hPres;
-        asignaturaMaxHoras = [fila[indexTitulo]];
-      } else if (hPres === maxHoras) {
-        asignaturaMaxHoras.push(fila[indexTitulo]);
+      if (hPres > maxHorasPres) {
+        maxHorasPres = hPres;
+        asignaturaMaxHoras = [titulo];
+      } else if (hPres === maxHorasPres) {
+        asignaturaMaxHoras.push(titulo);
+      }
+
+      
+      const sem = fila[indexSemestre];
+      if (sem !== "" && sem != null) {
+        mapaHorasPorSemestre[sem] = (mapaHorasPorSemestre[sem] || 0) + hPres;
+      }
+
+      // Proporción hPres/hTot
+      const hTot = horasTotales(fila, encabezado);
+      if (hTot > 0) {
+        sumaProporciones += (hPres / hTot);
+        conteoCursos++;
       }
     });
 
-    // Guardar resultados por carrera
-    resultados["Asignatura con más requisitos"][carrera] = asignaturaMaxReq.join(" / ");
-    resultados["Cantidad sin requisitos"][carrera] = sinRequisitos;
-    resultados["Asignatura con más horas presenciales"][carrera] = asignaturaMaxHoras.join(" / ");
+    // Calcular semestre con más/menos horas presenciales
+    let semMaxHoras = "";
+    let semMinHoras = "";
+    let valorMaxSem = -Infinity;
+    let valorMinSem = Infinity;
+    for (const sem in mapaHorasPorSemestre) {
+      const sumaSem = mapaHorasPorSemestre[sem];
+      if (sumaSem > valorMaxSem) {
+        valorMaxSem = sumaSem;
+        semMaxHoras = sem;
+      }
+      if (sumaSem < valorMinSem) {
+        valorMinSem = sumaSem;
+        semMinHoras = sem;
+      }
+    }
+    
+    if (valorMaxSem === -Infinity) semMaxHoras = "";
+    if (valorMinSem === Infinity)  semMinHoras = "";
+
+    // Proporción promedio
+    const promedioProporcion = (conteoCursos > 0)
+      ? (sumaProporciones / conteoCursos)
+      : 0;
+
+    // Asignatura núcleo
+    const asignaturaNucleo = calcularAsignaturaNucleo(
+      filas,
+      indexCodigo,
+      indexTitulo,
+      indexRequisitos
+    );
+
+    // Guardar resultados en el objeto “resultados”
+    resultados["Asignatura con más requisitos"][carrera]            = asignaturaMaxReq.join(" / ");
+    resultados["Cantidad sin requisitos"][carrera]                  = sinRequisitos;
+    resultados["Asignatura con más horas presenciales"][carrera]    = asignaturaMaxHoras.join(" / ");
+    resultados["Semestre con más horas presenciales"][carrera]      = semMaxHoras;
+    resultados["Semestre con menos horas presenciales"][carrera]    = semMinHoras;
+    
+    resultados["Proporción promedio hPres / hTot"][carrera]         = promedioProporcion.toFixed(2);
+    resultados["Asignatura núcleo"][carrera]                         = asignaturaNucleo;
   });
 
-  // Crear o reemplazar hoja "Análisis"
-  const anterior = libro.getSheetByName("Análisis");
-  if (anterior) libro.deleteSheet(anterior);
+  //  Crear o reemplazar hoja Análisis
+  const hojaAnterior = libro.getSheetByName("Análisis");
+  if (hojaAnterior) libro.deleteSheet(hojaAnterior);
   const hojaAnalisis = libro.insertSheet("Análisis");
 
-  const carreras = Object.values(resultados)[0]
-    ? Object.keys(Object.values(resultados)[0])
-    : [];
+  
+  const carreras = Object.keys(resultados["Asignatura con más requisitos"]);
 
-  // Escribir encabezados
+  
   hojaAnalisis.getRange(1, 1).setValue("Métrica");
   carreras.forEach((carrera, j) => {
     hojaAnalisis.getRange(1, j + 2).setValue(carrera);
   });
 
-  // Escribir datos por métrica y carrera
+
   const nombresMetricas = Object.keys(resultados);
   nombresMetricas.forEach((metrica, i) => {
     hojaAnalisis.getRange(i + 2, 1).setValue(metrica);
@@ -231,7 +315,7 @@ function generarAnalisis() {
     });
   });
 
-  // Formato visual
+
   const rango = hojaAnalisis.getDataRange();
   rango.setWrap(true);
   rango.setHorizontalAlignment("center");
