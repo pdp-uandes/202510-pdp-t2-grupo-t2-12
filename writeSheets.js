@@ -287,7 +287,7 @@ function generarAnalisis() {
     resultados["Semestre con más horas presenciales"][carrera]      = semMaxHoras;
     resultados["Semestre con menos horas presenciales"][carrera]    = semMinHoras;
     
-    resultados["Proporción promedio hPres / hTot %"][carrera]         = promedioProporcion.toFixed(2) * 100 + "%";
+    resultados["Proporción promedio hPres / hTot"][carrera]         = promedioProporcion.toFixed(2)*100 + "%";
     resultados["Asignatura núcleo"][carrera]                         = asignaturaNucleo;
   });
 
