@@ -167,7 +167,7 @@ function generarAnalisis() {
     if (!nombreHoja.startsWith("c-")) return;
 
     const carrera = nombreHoja.slice(2);
-    const valores  = hoja.getDataRange().getValues();
+    const valores = hoja.getDataRange().getValues();
     if (valores.length <= 1) {
       
       for (let metrica in resultados) {
@@ -334,4 +334,185 @@ function generarAnalisis() {
   rango.setBorder(true, true, true, true, true, true);
 
   SpreadsheetApp.getUi().alert("Análisis generado correctamente.");
+}
+
+function generarMalla_pt5() {
+  const libro = SpreadsheetApp.getActiveSpreadsheet();
+  const hojaActual = SpreadsheetApp.getActiveSheet();
+  const nombreHoja = hojaActual.getName();
+ 
+  if (!nombreHoja.startsWith("c-")) return;
+ 
+  const carrera = nombreHoja.slice(2);
+  const valores = hojaActual.getDataRange().getValues();
+ 
+  if (valores.length <= 1) {
+    SpreadsheetApp.getUi().alert("No se puede crear la malla");
+    return;
+  }
+ 
+  const encabezado = valores[0];
+  const filas = valores.slice(1).filter(fila => fila[0]);
+ 
+  const indexCodigo = encabezado.indexOf("CODIGO");
+  const indexTitulo = encabezado.indexOf("TITULO");
+  const indexRequisitos = encabezado.indexOf("Requisitos");
+  const indexSemestre = encabezado.indexOf("Semestre");
+ 
+  // Detectar menciones
+  const menciones = new Set();
+  filas.forEach(fila => {
+    const semestre = fila[indexSemestre]?.toString() || "";
+    const letra = semestre.match(/[A-Za-z]$/);
+    if (letra) menciones.add(letra[0]);
+  });
+  
+  if (menciones.size > 0) {
+    Array.from(menciones).sort().forEach(mencion => {
+      const filasConMencion = filas.filter(fila => {
+        const semestre = fila[indexSemestre]?.toString() || "";
+        return semestre.endsWith(mencion);
+      });
+
+      // CREAR HOJA SIEMPRE 
+      const hojaAnterior = libro.getSheetByName(`m-${carrera}${mencion}`);
+      if (hojaAnterior) libro.deleteSheet(hojaAnterior);
+      const nuevaMalla = libro.insertSheet(`m-${carrera}${mencion}`);
+     
+      if (filasConMencion.length > 0) {
+        const valoresConMencion = [encabezado, ...filasConMencion];
+        const datos = matrizSemestreCursos(valoresConMencion);
+        
+
+        if (datos.length > 0) {
+          const dependientes = obtenerDependientes(filasConMencion, indexCodigo, indexTitulo, indexRequisitos);
+         
+
+          datos.forEach((fila, filaIndex) => {
+
+            if (fila && fila.length > 0) {
+              nuevaMalla.getRange(filaIndex + 1, 1, 1, fila.length).setValues([fila]);
+             
+              fila.slice(1).forEach((nombreCurso, cursoIndex) => {
+                if (nombreCurso) {
+                  const infoCurso = filasConMencion.find(f => f[indexTitulo] === nombreCurso);
+                 
+                  if (infoCurso) {
+                    const codigo = infoCurso[indexCodigo];
+                    const requisitos = infoCurso[indexRequisitos];
+                   
+                    let color = "#ffffff";
+                    if (!dependientes[codigo] || dependientes[codigo].length === 0) {
+                      color = "#0000ff";
+                    }
+                    else if (!requisitos || requisitos.toString().trim() === "") {
+                      color = "#ffff00";
+                    }
+                   
+                    nuevaMalla.getRange(filaIndex + 1, cursoIndex + 2).setBackground(color);
+                  }
+                }
+              });
+            }
+          });
+          
+        }
+      }
+      // SI NO HAY DATOS, LA HOJA QUEDA VACÍA (ya se creó arriba)
+    });
+    
+    // Generar malla común (sin menciones)
+    const filasSinMencion = filas.filter(fila => {
+      const semestre = fila[indexSemestre]?.toString() || "";
+      return !/[A-Za-z]$/.test(semestre);
+    });
+    
+
+    const hojaAnteriorComun = libro.getSheetByName(`m-${carrera}`);
+    if (hojaAnteriorComun) libro.deleteSheet(hojaAnteriorComun);
+    const nuevaMallaComun = libro.insertSheet(`m-${carrera}`);
+    
+    if (filasSinMencion.length > 0) {
+      const valoresSinMencion = [encabezado, ...filasSinMencion];
+      const datos = matrizSemestreCursos(valoresSinMencion);
+      
+
+      if (datos.length > 0) {
+        const dependientes = obtenerDependientes(filasSinMencion, indexCodigo, indexTitulo, indexRequisitos);
+       
+        // Escribir datos con colores
+        datos.forEach((fila, filaIndex) => {
+          if (fila && fila.length > 0) {
+            nuevaMallaComun.getRange(filaIndex + 1, 1, 1, fila.length).setValues([fila]);
+           
+            fila.slice(1).forEach((nombreCurso, cursoIndex) => {
+              if (nombreCurso) {
+                const infoCurso = filasSinMencion.find(f => f[indexTitulo] === nombreCurso);
+               
+                if (infoCurso) {
+                  const codigo = infoCurso[indexCodigo];
+                  const requisitos = infoCurso[indexRequisitos];
+                 
+                  let color = "#ffffff";
+                  if (!dependientes[codigo] || dependientes[codigo].length === 0) {
+                    color = "#0000ff";
+                  }
+                  else if (!requisitos || requisitos.toString().trim() === "") {
+                    color = "#ffff00";
+                  }
+                 
+                  nuevaMallaComun.getRange(filaIndex + 1, cursoIndex + 2).setBackground(color);
+                }
+              }
+            });
+          }
+        });
+        
+      }
+    }
+    // ✅ SI NO HAY FILAS SIN MENCIÓN, LA HOJA COMÚN QUEDA VACÍA (ya se creó arriba)
+  } else {
+    // Sin menciones, crear una sola malla
+
+    const datos = matrizSemestreCursos(valores); // O mejor aún, pasar los valores directamente
+    
+    if (datos.length > 0) {
+      const dependientes = obtenerDependientes(filas, indexCodigo, indexTitulo, indexRequisitos);
+      
+      // Eliminar hoja anterior si existe
+      const hojaAnterior = libro.getSheetByName(`m-${carrera}`);
+      if (hojaAnterior) libro.deleteSheet(hojaAnterior);
+      
+      const nuevaMalla = libro.insertSheet(`m-${carrera}`);
+     
+      // Escribir datos con colores
+      datos.forEach((fila, filaIndex) => {
+        if (fila && fila.length > 0) {
+          nuevaMalla.getRange(filaIndex + 1, 1, 1, fila.length).setValues([fila]);
+         
+          fila.slice(1).forEach((nombreCurso, cursoIndex) => {
+            if (nombreCurso) {
+              const infoCurso = filas.find(f => f[indexTitulo] === nombreCurso);
+             
+              if (infoCurso) {
+                const codigo = infoCurso[indexCodigo];
+                const requisitos = infoCurso[indexRequisitos];
+               
+                let color = "#ffffff";
+                if (!dependientes[codigo] || dependientes[codigo].length === 0) {
+                  color = "#0000ff";
+                }
+                else if (!requisitos || requisitos.toString().trim() === "") {
+                  color = "#ffff00";
+                }
+               
+                nuevaMalla.getRange(filaIndex + 1, cursoIndex + 2).setBackground(color);
+              }
+            }
+          });
+        }
+      });
+      
+    }
+  }
 }

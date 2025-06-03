@@ -9,8 +9,10 @@ function onOpen() {
     .addSeparator()
     .addItem('Análisis', 'generarAnalisis')
     .addSeparator()
-    .addItem('Malla', 'generarMalla')
+    .addItem('Malla', 'generarMalla_pt5')
     .addSeparator()
     .addItem('Reiniciar colores', 'resetearColores')
+    .addSeparator()
+    .addItem('Malla avanzada', 'generarMallaAvanzada')
     .addToUi();
 }

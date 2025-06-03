@@ -150,3 +150,42 @@ function calcularAsignaturaNucleo(datos, indexCodigo, indexTitulo, indexRequisit
 
   return asignaturasNucleo.join(" / ");
 }
+
+
+function matrizSemestreCursos(datosParametro = null) {
+  let datos;
+  
+  if (datosParametro && Array.isArray(datosParametro)) {
+    datos = datosParametro;
+  } else {
+    const hoja = SpreadsheetApp.getActiveSheet();
+    datos = hoja.getDataRange().getValues();
+  }
+ 
+  if (datos.length <= 1) return [];
+ 
+  const encabezado = datos[0];
+  const filas = datos.slice(1);
+ 
+  const indexTitulo = encabezado.indexOf("TITULO");
+  const indexSemestre = encabezado.indexOf("Semestre");
+ 
+  if (indexTitulo === -1 || indexSemestre === -1) return [];
+ 
+  const dict = filas.reduce((acc, fila) => {
+    const titulo = fila[indexTitulo];
+    const semestre = fila[indexSemestre];
+   
+    if (titulo && semestre && titulo.toString().trim() !== "" && semestre.toString().trim() !== "") {
+      const semestreStr = semestre.toString();
+      return {
+        ...acc,
+        [semestreStr]: [...(acc[semestreStr] || []), titulo]
+      };
+    }
+   
+    return acc;
+  }, {});
+  
+  return Object.entries(dict).map(([semestre, cursos]) => [semestre, ...cursos]);
+}
