@@ -470,7 +470,7 @@ function generarMalla_pt5() {
         
       }
     }
-    // ✅ SI NO HAY FILAS SIN MENCIÓN, LA HOJA COMÚN QUEDA VACÍA (ya se creó arriba)
+    // SI NO HAY FILAS SIN MENCIÓN, LA HOJA COMÚN QUEDA VACÍA (ya se creó arriba)
   } else {
     // Sin menciones, crear una sola malla
 
